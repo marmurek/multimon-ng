@@ -34,7 +34,7 @@ extern const int costabi[0x400];
 
 #define COS(x) costabi[(((x)>>6)&0x3ffu)]
 
-enum gen_type { gentype_dtmf, gentype_sine, gentype_zvei, gentype_hdlc, gentype_uart, gentype_clipfsk, gentype_flex, gentype_pocsag };
+enum gen_type { gentype_dtmf, gentype_sine, gentype_zvei, gentype_hdlc, gentype_uart, gentype_clipfsk, gentype_flex, gentype_pocsag, gentype_stqc };
 
 struct gen_params {
 	enum gen_type type;
@@ -54,6 +54,11 @@ struct gen_params {
 			int pause;
 			char str[256];
 		} zvei;
+		struct {
+			int duration;
+			int pause;
+			char str[256];
+		} stqc;
 		struct {
 			int modulation;
 			int txdelay;
@@ -110,6 +115,11 @@ struct gen_state {
 			int time, time2;
 		} zvei;
 		struct {
+			int ch_idx;
+			int ph, phinc;
+			int time;
+		} stqc;
+		struct {
 			int ch_idx, bitmask;
 			unsigned int ph, phinc, bitph;
 			unsigned int datalen;
@@ -152,6 +162,8 @@ extern int gen_sine(signed short *buf, int buflen, struct gen_params *p, struct 
 
 extern void gen_init_zvei(struct gen_params *p, struct gen_state *s);
 extern int gen_zvei(signed short *buf, int buflen, struct gen_params *p, struct gen_state *s);
+extern void gen_init_stqc(struct gen_params *p, struct gen_state *s);
+extern int gen_stqc(signed short *buf, int buflen, struct gen_params *p, struct gen_state *s);
 
 extern void gen_init_uart(struct gen_params *p, struct gen_state *s);
 extern int gen_uart(signed short *buf, int buflen, struct gen_params *p, struct gen_state *s);

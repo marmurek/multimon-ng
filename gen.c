@@ -129,11 +129,11 @@ typedef void (*t_init_procs)(struct gen_params *, struct gen_state *);
 typedef int (*t_gen_procs)(signed short *, int, struct gen_params *, struct gen_state *);
 
 static const t_init_procs init_procs[] = {
-	gen_init_dtmf, gen_init_sine, gen_init_zvei, gen_init_hdlc, gen_init_uart, gen_init_clipfsk, gen_init_flex, gen_init_pocsag
+	gen_init_dtmf, gen_init_sine, gen_init_zvei, gen_init_hdlc, gen_init_uart, gen_init_clipfsk, gen_init_flex, gen_init_pocsag, gen_init_stqc
 };
 
 static const t_gen_procs gen_procs[] = {
-	gen_dtmf, gen_sine, gen_zvei, gen_hdlc, gen_uart, gen_clipfsk, gen_flex, gen_pocsag
+	gen_dtmf, gen_sine, gen_zvei, gen_hdlc, gen_uart, gen_clipfsk, gen_flex, gen_pocsag, gen_stqc
 };
 
 /* ---------------------------------------------------------------------- */
@@ -570,6 +570,7 @@ static const char usage_str[] = "Generates test signals\n"
 "  -a <ampl>  : amplitude\n"
 "  -d <str>   : encode DTMF string\n"
 "  -z <str>   : encode ZVEI string\n"
+"  -Q <str>   : encode STQC tones 0-4; a space inserts a 200 ms pause\n"
 "  -s <freq>  : encode sine\n"
 "  -u <text>  : encode uart string\n"
 "  -p <text>  : encode hdlc packet\n"
@@ -604,7 +605,7 @@ int main(int argc, char *argv[])
 
 	fprintf(stdout, "gen-ng - (C) 1997 by Tom Sailer HB9JNX/AE4WA\n"
                     "         (C) 2012/2013 by Elias Oenal\n");	
-	while ((c = getopt(argc, argv, "t:a:d:s:z:p:u:c:f:F:G:e:P:A:B:S:NIh")) != EOF) {
+	while ((c = getopt(argc, argv, "t:a:d:s:z:Q:p:u:c:f:F:G:e:P:A:B:S:NIh")) != EOF) {
 		switch (c) {
 		case 'h':
 		case '?':
@@ -682,6 +683,20 @@ int main(int argc, char *argv[])
 			params[num_gen-1].p.zvei.duration = MS(50);
 			params[num_gen-1].p.zvei.pause = MS(50);
 			snprintf(params[num_gen-1].p.zvei.str, sizeof(params[num_gen-1].p.zvei.str), "%s", optarg);
+			break;
+
+		case 'Q':
+			if (num_gen >= MAX_GEN) {
+				fprintf(stderr, "too many generators\n");
+				errflg++;
+				break;
+			}
+			num_gen++;
+			params[num_gen-1].type = gentype_stqc;
+			params[num_gen-1].ampl = 16384;
+			params[num_gen-1].p.stqc.duration = MS(100);
+			params[num_gen-1].p.stqc.pause = MS(200);
+			snprintf(params[num_gen-1].p.stqc.str, sizeof(params[num_gen-1].p.stqc.str), "%s", optarg);
 			break;
 
 		case 'u':

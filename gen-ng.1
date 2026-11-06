@@ -24,6 +24,8 @@ DTMF (Dual Tone Multi Frequency)
 .IP \(bu 4
 ZVEI (selective calling)
 .IP \(bu 4
+STQC (selective calling)
+.IP \(bu 4
 UART (serial data)
 .IP \(bu 4
 HDLC (High-Level Data Link Control packets)
@@ -53,6 +55,11 @@ Valid characters: 0-9, A-D, *, #.
 .TP
 .B  \-z <string>
 Generate ZVEI selective call tones for the given digit string.
+.TP
+.B  \-Q <string>
+Generate STQC selective call tones. Characters 0-4 select a 100 ms tone,
+a space inserts a 200 ms pause, e.g. "4204123 40324202".
+Other characters are reported and skipped.
 .TP
 .B  \-s <freq>
 Generate a sine wave at the specified frequency in Hz.

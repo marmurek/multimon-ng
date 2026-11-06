@@ -254,6 +254,7 @@ if( BUILD_GEN_NG )
 		gen_dtmf.c
 		gen_sin.c
 		gen_zvei.c
+		gen_stqc.c
 		gen_hdlc.c
 		gen_uart.c
 		gen_clipfsk.c
