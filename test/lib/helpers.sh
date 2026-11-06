@@ -341,3 +341,67 @@ run_gen_decode_expect_fail() {
     TESTS_PASSED=$((TESTS_PASSED + 1))
     return 0
 }
+
+# Generate a signal, process it with sox and decode it
+# Arguments: name gen_opts sox_cmd decoder [expected1 ...]
+# sox_cmd is evaluated with $IN and $OUT set to raw file paths, $TMP to a
+# spare raw file path and $RAW to the matching sox format options.
+# Without expected patterns the decoder must not produce any output.
+run_gen_sox_decode_test() {
+    local name="$1"
+    local gen_opts="$2"
+    local sox_cmd="$3"
+    local decoder="$4"
+    shift 4
+    local expected_patterns=("$@")
+
+    local IN="${TEST_DIR}/tmp_sox_in_$$.raw"
+    local OUT="${TEST_DIR}/tmp_sox_out_$$.raw"
+    local TMP="${TEST_DIR}/tmp_sox_tmp_$$.raw"
+    local RAW="-t raw -e signed-integer -b 16 -r 22050 -c 1"
+
+    TESTS_RUN=$((TESTS_RUN + 1))
+    echo -n "Testing $name... "
+
+    if ! command -v sox >/dev/null 2>&1; then
+        echo -e "${GREEN}SKIPPED${NC} (sox not installed)"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+        return 0
+    fi
+
+    if [ -n "$gen_opts" ]; then
+        if ! eval "run_gen_ng -t raw $gen_opts \"$IN\"" >/dev/null 2>&1; then
+            echo -e "${RED}FAILED${NC} (gen-ng failed)"
+            rm -f "$IN"
+            return 1
+        fi
+    fi
+    if ! eval "$sox_cmd" >/dev/null 2>&1; then
+        echo -e "${RED}FAILED${NC} (sox failed)"
+        rm -f "$IN" "$OUT" "$TMP"
+        return 1
+    fi
+
+    local output
+    output=$(run_multimon -t raw -q -a "$decoder" "$OUT")
+    rm -f "$IN" "$OUT" "$TMP"
+
+    if [ ${#expected_patterns[@]} -eq 0 ]; then
+        if [ -n "$(echo "$output" | tr -d '[:space:]')" ]; then
+            echo -e "${RED}FAILED${NC} (decoder produced output when it should have failed)"
+            echo "  Got output:"
+            echo "$output" | sed 's/^/    /'
+            return 1
+        fi
+        echo -e "${GREEN}PASSED${NC} (no output, as expected)"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+        return 0
+    fi
+
+    if check_patterns "$output" "${expected_patterns[@]}"; then
+        report_result "$name" 1
+    else
+        report_result "$name" 0 "$MISSING_PATTERN" "$output"
+        return 1
+    fi
+}

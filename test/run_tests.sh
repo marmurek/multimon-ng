@@ -230,6 +230,67 @@ if [ $GEN_NG_AVAILABLE -eq 1 ]; then
     
     run_gen_decode_test "ZVEI1 with E" \
         '-z "1E234"' "ZVEI1" "ZVEI1: 1E234" || FAILED=1
+
+    echo
+    echo "STQC end-to-end tests:"
+
+    # Address/command pair as transmitted by DSP-50 controllers.
+    STQC_CALL='-Q "4204123 40324202" -a 0.25'
+
+    run_gen_decode_test "STQC address" \
+        '-Q "4204123"' "STQC" \
+        "STQC: 7 tones  orig:[4204123] parsed:[0200123]  VALUES: dec: 2075 hex: 0x81B" || FAILED=1
+
+    run_gen_decode_test "STQC address and command" \
+        "$STQC_CALL" "STQC" \
+        "STQC: 7 tones  orig:[4204123]" \
+        "STQC: 8 tones  orig:[40324202] parsed:[00322202]  VALUES: dec: 3746 hex: 0xEA2" || FAILED=1
+
+    # Example from the STQC protocol description by SQ5BPF.
+    run_gen_decode_test "STQC protocol example" \
+        '-Q "40103034"' "STQC" "orig:[40103034] parsed:[00103033]  VALUES: dec: 1231 hex: 0x4CF" || FAILED=1
+
+    run_gen_decode_test_with_opts "STQC JSON" \
+        '-Q "4204123"' "STQC" "--json" \
+        '{"demod_name":"STQC","tones":"4204123","digits":"0200123","value":2075}' || FAILED=1
+
+    run_gen_decode_test "STQC low level" \
+        "$STQC_CALL -a -60dB" "STQC" "orig:[4204123]" "orig:[40324202]" || FAILED=1
+
+    # 1000 Hz at the level of the STQC tones for the whole call, next to 980 Hz.
+    run_gen_sox_decode_test "STQC with interfering tone" \
+        "$STQC_CALL" 'sox $RAW "$IN" $RAW "$TMP" synth sine 1000 vol 0.125 && sox -m $RAW "$IN" $RAW "$TMP" $RAW "$OUT"' "STQC" \
+        "orig:[4204123]" "orig:[40324202]" || FAILED=1
+
+    run_gen_decode_expect_fail "STQC two-tone sequence (expect no output)" \
+        '-Q "42"' "STQC" || FAILED=1
+
+    run_gen_decode_expect_fail "STQC sine only (expect no output)" \
+        '-s 1446' "STQC" || FAILED=1
+
+    run_gen_sox_decode_test "STQC overdriven" \
+        "$STQC_CALL" 'sox $RAW "$IN" $RAW "$OUT" gain 30' "STQC" \
+        "orig:[4204123]" "orig:[40324202]" || FAILED=1
+
+    run_gen_sox_decode_test "STQC in-band noise" \
+        "$STQC_CALL" 'sox -R $RAW "$IN" $RAW "$TMP" synth whitenoise sinc 300-3000 vol 0.2 && sox -R -m $RAW "$IN" $RAW "$TMP" $RAW "$OUT"' "STQC" \
+        "orig:[4204123]" "orig:[40324202]" || FAILED=1
+
+    run_gen_sox_decode_test "STQC noise only (expect no output)" \
+        "" 'sox -R -n $RAW "$OUT" synth 10 whitenoise vol 0.5' "STQC" || FAILED=1
+
+    run_gen_sox_decode_test "STQC frequency sweep (expect no output)" \
+        "" 'sox -R -n $RAW "$OUT" synth 10 sine 300-3000' "STQC" || FAILED=1
+
+    # A long tone terminates the sequence; the next call must decode in full.
+    run_gen_sox_decode_test "STQC call after long repeat tone" \
+        "$STQC_CALL" 'sox -n $RAW "$TMP" synth 2 sine 2105 vol 0.125 pad 0 0.5 && sox $RAW "$TMP" $RAW "$IN" $RAW "$OUT"' "STQC" \
+        "STQC: 7 tones  orig:[4204123]" "STQC: 8 tones  orig:[40324202]" || FAILED=1
+
+    # Echo of the last address tone extends into the pause before the command.
+    run_gen_sox_decode_test "STQC echo tail in address/command pause" \
+        "$STQC_CALL" 'sox -n $RAW "$TMP" synth 0.2 sine 1795 vol 0.06 pad 0.7 && sox -m $RAW "$IN" $RAW "$TMP" $RAW "$OUT"' "STQC" \
+        "STQC: 7 tones  orig:[4204123]" "STQC: 8 tones  orig:[40324202]" || FAILED=1
     
     echo
     echo "FLEX end-to-end tests:"
