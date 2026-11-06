@@ -200,6 +200,7 @@ set( SOURCES ${SOURCES}
 	demod_zvei1.c
 	demod_zvei2.c
 	demod_zvei3.c
+	demod_stqc.c
 	demod_pzvei.c
 	demod_dzvei.c
 	demod_ccir.c

@@ -13,6 +13,7 @@ multimon-ng is the successor of multimon. It decodes the following digital trans
 - DTMF
 - DUALTONE (siren activation dualtone, TR-BOS C 4.6)
 - ZVEI1 ZVEI2 ZVEI3 DZVEI PZVEI
+- STQC (Polish fire brigade selective call, Digitex/Platan DSP-50; based on the [decoder by Jacek Lipkowski SQ5BPF](https://github.com/sq5bpf/multimon-ng-stqc))
 - EEA EIA CCIR
 - MORSE_CW
 - DUMPCSV X10 SCOPE SDL_SCOPE

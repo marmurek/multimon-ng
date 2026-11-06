@@ -57,6 +57,10 @@ enum
     POCSAG_MODE_AUTO = 4,
 };
 
+#define STQC_NUM_TONES 5
+/* Base-4 digits; the decoded value must stay exact as a JSON number. */
+#define STQC_MAX_TONES 24
+
 enum EAS_L2_State
 {
     EAS_L2_IDLE = 0,
@@ -226,6 +230,22 @@ struct demod_state {
             int timeout;
         } selcall;
 
+        struct l1_state_stqc {
+            unsigned int ph[STQC_NUM_TONES];
+            float energy[4];
+            float tenergy[4][2*STQC_NUM_TONES];
+            int blkcount;
+            int cand;               /* tone detected in the previous block */
+            int cand_blocks;        /* consecutive blocks with that tone */
+            int lastch;             /* last tone appended to the sequence */
+            int tone_blocks;        /* duration of the last tone */
+            int gap_blocks;         /* blocks without a tone, saturating */
+            float peak;             /* reference level: strongest tone energy,
+                                       decaying while no sequence is active */
+            unsigned int ntones;
+            char tones[STQC_MAX_TONES+1];
+        } stqc;
+
         struct l1_state_dualtone {
             float window[2205];     /* 100 ms coarse sliding window @22050 Hz */
             float window_long[22050]; /* 1 s ring for the fine frequency check */
@@ -330,6 +350,7 @@ extern const struct demod_param demod_dualtone;
 extern const struct demod_param demod_zvei1;
 extern const struct demod_param demod_zvei2;
 extern const struct demod_param demod_zvei3;
+extern const struct demod_param demod_stqc;
 extern const struct demod_param demod_dzvei;
 extern const struct demod_param demod_pzvei;
 extern const struct demod_param demod_eea;
@@ -362,7 +383,7 @@ extern const struct demod_param demod_sdl_scope;
 
 #define ALL_DEMOD &demod_poc5, &demod_poc12, &demod_poc24, &demod_flex, &demod_flex_next, &demod_gsc, &demod_eas, &demod_ufsk1200, &demod_clipfsk, &demod_fmsfsk, \
     &demod_afsk1200, &demod_afsk2400, &demod_afsk2400_2, &demod_afsk2400_3, &demod_hapn4800, \
-    &demod_fsk9600, &demod_dtmf, &demod_dualtone, &demod_zvei1, &demod_zvei2, &demod_zvei3, &demod_dzvei, \
+    &demod_fsk9600, &demod_dtmf, &demod_dualtone, &demod_zvei1, &demod_zvei2, &demod_zvei3, &demod_stqc, &demod_dzvei, \
     &demod_pzvei, &demod_eea, &demod_eia, &demod_ccir, &demod_morse, &demod_dumpcsv, &demod_x10 SCOPE_DEMOD SDL_SCOPE_DEMOD
 
 
