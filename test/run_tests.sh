@@ -73,6 +73,29 @@ run_test "POCSAG2400" "POCSAG2400" "flac" "$SAMPLES_DIR/POCSAG_sample_-_2400_bps
     "POCSAG2400: Address: 1022869  Function: 1  Alpha:   +++TIME=0008300324" \
     || FAILED=1
 
+# STQC samples: DSP-50 calls (7-tone address, 8-tone command) captured from
+# radio and from a loudspeaker in a reverberant room with audio distortion.
+run_test "STQC radio test call" "STQC" "flac" "$SAMPLES_DIR/STQC_dsp50_test_radio.flac" \
+    "STQC: 7 tones  orig:[4034101] parsed:[0033101]  VALUES: dec: 977 hex: 0x3D1" \
+    "STQC: 8 tones  orig:[40340132] parsed:[00330132]  VALUES: dec: 3870 hex: 0xF1E" \
+    || FAILED=1
+
+run_test "STQC radio test call with reply" "STQC" "flac" "$SAMPLES_DIR/STQC_dsp50_test_radio_reply.flac" \
+    "STQC: 7 tones  orig:[4021042] parsed:[0021002]  VALUES: dec: 578 hex: 0x242" \
+    "STQC: 8 tones  orig:[40302431] parsed:[00302231]  VALUES: dec: 3245 hex: 0xCAD" \
+    "STQC: 4 tones  orig:[0231] parsed:[0231]  VALUES: dec: 45 hex: 0x2D" \
+    || FAILED=1
+
+run_test "STQC alarm call between music and siren" "STQC" "flac" "$SAMPLES_DIR/STQC_dsp50_alarm_music_siren.flac" \
+    "STQC: 7 tones  orig:[4143134] parsed:[0113133]  VALUES: dec: 1503 hex: 0x5DF" \
+    "STQC: 8 tones  orig:[40103021] parsed:[00103021]  VALUES: dec: 1225 hex: 0x4C9" \
+    || FAILED=1
+
+run_test "STQC test call with room echo" "STQC" "flac" "$SAMPLES_DIR/STQC_dsp50_test_room_echo.flac" \
+    "STQC: 7 tones  orig:[4204123] parsed:[0200123]  VALUES: dec: 2075 hex: 0x81B" \
+    "STQC: 8 tones  orig:[40324202] parsed:[00322202]  VALUES: dec: 3746 hex: 0xEA2" \
+    || FAILED=1
+
 # FLEX_NEXT sample: real-world 1600/2FSK P2000 proef-alarm (Netherlands)
 # Tests: 1600/2FSK decode, fragment reassembly (F→C continuation),
 #        instruction messages (INS), group/tagged messages (TG),
