@@ -341,6 +341,8 @@ void printJson(cJSON *json_output)
     char *json = cJSON_PrintUnformatted(json_output);
     if (json) {
         fprintf(stdout, "%s\n", json);
+        if (!dont_flush)
+            fflush(stdout);
         cJSON_free(json);
     }
 }
