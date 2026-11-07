@@ -232,6 +232,7 @@ struct demod_state {
 
         struct l1_state_stqc {
             unsigned int ph[STQC_NUM_TONES];
+            float lpf[2][2];        /* state of the band-limiting biquads */
             float energy[4];
             float tenergy[4][2*STQC_NUM_TONES];
             int blkcount;
@@ -239,9 +240,12 @@ struct demod_state {
             int cand_blocks;        /* consecutive blocks with that tone */
             int lastch;             /* last tone appended to the sequence */
             int tone_blocks;        /* duration of the last tone */
+            float tone_min;         /* lowest energy of the last tone once it
+                                       is long enough; 0 until then */
             int gap_blocks;         /* blocks without a tone, saturating */
-            float peak;             /* reference level: strongest tone energy,
-                                       decaying while no sequence is active */
+            float peak[STQC_NUM_TONES]; /* reference level per tone: its
+                                       strongest recent energy, decaying while
+                                       no sequence is active */
             unsigned int ntones;
             char tones[STQC_MAX_TONES+1];
         } stqc;

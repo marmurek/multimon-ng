@@ -96,6 +96,19 @@ run_test "STQC test call with room echo" "STQC" "flac" "$SAMPLES_DIR/STQC_dsp50_
     "STQC: 8 tones  orig:[40324202] parsed:[00322202]  VALUES: dec: 3746 hex: 0xEA2" \
     || FAILED=1
 
+# Tone 1 (1197 Hz) is 18 dB weaker than the other tones, 12 Hz high and
+# shorter than 100 ms.
+run_test "STQC alarm call with weak tone" "STQC" "flac" "$SAMPLES_DIR/STQC_dsp50_alarm_weak_tone.flac" \
+    "STQC: 7 tones  orig:[4041210] parsed:[0001210]  VALUES: dec: 100 hex: 0x64" \
+    "STQC: 8 tones  orig:[40434312] parsed:[00033312]  VALUES: dec: 1014 hex: 0x3F6" \
+    || FAILED=1
+
+# Tone 1 is distorted: its third harmonic carries 90 % of the energy.
+run_test "STQC alarm call with distorted tone" "STQC" "flac" "$SAMPLES_DIR/STQC_dsp50_alarm_distorted_tone.flac" \
+    "STQC: 7 tones  orig:[4204141] parsed:[0200111]  VALUES: dec: 2069 hex: 0x815" \
+    "STQC: 8 tones  orig:[40123131] parsed:[00123131]  VALUES: dec: 1757 hex: 0x6DD" \
+    || FAILED=1
+
 # FLEX_NEXT sample: real-world 1600/2FSK P2000 proef-alarm (Netherlands)
 # Tests: 1600/2FSK decode, fragment reassembly (F→C continuation),
 #        instruction messages (INS), group/tagged messages (TG),

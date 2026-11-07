@@ -65,25 +65,57 @@
  * 100 ms) and terminates the current one. Catches echo tails that bridge
  * the pause in overdriven audio, where LEVEL_DROP cannot separate them. */
 #define MAX_TONE_BLOCKS 16
-/* Tone energy relative to the strongest recent tone below which a tone is
- * treated as absent. Suppresses room echo and radio tails that would
- * otherwise bridge the pause between address and command or start the next
- * sequence with a spurious tone. */
-#define LEVEL_DROP 0.0625f          /* -12 dB */
-/* Per-block decay of the reference level while no sequence is active. */
+/* Tone energy relative to the strongest recent energy of the same tone
+ * below which the tone is treated as absent. Suppresses room echo and radio
+ * tails that would otherwise bridge the pause between address and command
+ * or start the next sequence with a spurious tone. The reference is kept
+ * per tone because receiver de-emphasis and audio filters attenuate the
+ * tones unequally; differences of up to 18 dB between the tones of one call
+ * were seen in recordings. */
+#define LEVEL_DROP 0.1f             /* -10 dB */
+/* Per-block decay of the reference levels while no sequence is active. */
 #define PEAK_DECAY 0.9f
 /* Dominant tone energy relative to every other tone (-7 dB). Lower than
  * the 10 dB used by selcall.c to tolerate echo and audio distortion. */
 #define DOMINANCE 0.2f
-/* Minimum share of the total block energy carried by the dominant tone.
- * Harmonics of overdriven audio take a large part of the total energy. */
-#define MIN_FRACTION 0.3f
+/* Minimum share of the band-limited block energy carried by the dominant
+ * tone. A weak tone following a strong one shares the correlation window
+ * with the tail of the strong tone and reaches about 15 %. */
+#define MIN_FRACTION 0.15f
+/* A tone whose energy rises by this factor (+6 dB) above its lowest level
+ * starts again: the part before the rise was a tail. Separates the first
+ * command tone from a tail of the same tone that stays strong through the
+ * pause in overdriven audio. The level is tracked from RISE_AFTER blocks on,
+ * when the correlation window no longer overlaps the tone onset; within a
+ * tone, levels varied by up to 4 dB in recordings. */
+#define RISE 4.0f
+#define RISE_AFTER 10
 /* Shorter sequences are discarded as noise. */
 #define MIN_SEQ_TONES 3
 
 static const unsigned int stqc_freq[STQC_NUM_TONES] = {
     PHINC(980), PHINC(1197), PHINC(1446), PHINC(1795), PHINC(2105)
 };
+
+/* The block energy compared against the dominant tone is limited to the tone
+ * range by a 4th-order Butterworth low-pass at 2500 Hz. Energy above the
+ * tones (harmonics of distorted tones, hiss) would otherwise count against
+ * them; a tone whose third harmonic carried 90 % of the energy was seen.
+ * Two biquads {b0, a1, a2} with b1 = 2 b0 and b2 = b0, for 22050 Hz. */
+static const float lpf_coef[2][3] = {
+    { 0.075813542f, -0.943724376f, 0.246978545f },
+    { 0.097266454f, -1.210769482f, 0.599835298f },
+};
+
+/* Transposed direct form II. */
+static inline float biquad(const float *c, float *z, float x)
+{
+    float y = c[0] * x + z[0];
+
+    z[0] = 2 * c[0] * x - c[1] * y + z[1];
+    z[1] = c[0] * x - c[2] * y;
+    return y;
+}
 
 extern int json_mode;
 
@@ -187,10 +219,26 @@ static void end_sequence(struct l1_state_stqc *st)
 
 static void process_tone(struct l1_state_stqc *st, int i, float en)
 {
+    int j;
+
     if (st->ntones == 0)
-        st->peak *= PEAK_DECAY;
-    if (i >= 0 && en < st->peak * LEVEL_DROP)
+        for (j = 0; j < STQC_NUM_TONES; j++)
+            st->peak[j] *= PEAK_DECAY;
+    if (i >= 0 && en < st->peak[i] * LEVEL_DROP)
         i = -1;
+
+    if (i >= 0 && i == st->lastch && st->tone_blocks >= RISE_AFTER) {
+        if (st->tone_min == 0 || en < st->tone_min)
+            st->tone_min = en;
+        if (en > st->tone_min * RISE) {
+            end_sequence(st);
+            st->lastch = -1;
+            st->cand = i;
+            st->cand_blocks = 1;
+            st->gap_blocks = 0;
+            return;
+        }
+    }
 
     if (i >= 0 && i == st->cand) {
         st->cand_blocks++;
@@ -212,9 +260,10 @@ static void process_tone(struct l1_state_stqc *st, int i, float en)
 
     st->gap_blocks = 0;
     if (i == st->lastch) {
-        if (en > st->peak)
-            st->peak = en;
-        /* lastch stays set until the tone stops, so it is not re-added. */
+        if (en > st->peak[i])
+            st->peak[i] = en;
+        /* lastch stays set until the tone stops or rises, so it is not
+         * re-added. */
         if (st->tone_blocks <= MAX_TONE_BLOCKS && ++st->tone_blocks > MAX_TONE_BLOCKS)
             end_sequence(st);
         return;
@@ -228,20 +277,23 @@ static void process_tone(struct l1_state_stqc *st, int i, float en)
     st->tones[st->ntones] = '\0';
     st->lastch = i;
     st->tone_blocks = st->cand_blocks;
-    if (en > st->peak)
-        st->peak = en;
+    st->tone_min = 0;
+    if (en > st->peak[i])
+        st->peak[i] = en;
 }
 
 static void stqc_demod(struct demod_state *s, buffer_t buffer, int length)
 {
     struct l1_state_stqc *st = &s->l1.stqc;
     const float *in = buffer.fbuffer;
-    float s_in, en = 0;
+    float s_in, s_lp, en = 0;
     int i;
 
     for (; length > 0; length--, in++) {
         s_in = *in;
-        st->energy[0] += fsqr(s_in);
+        s_lp = biquad(lpf_coef[0], st->lpf[0], s_in);
+        s_lp = biquad(lpf_coef[1], st->lpf[1], s_lp);
+        st->energy[0] += fsqr(s_lp);
         for (i = 0; i < STQC_NUM_TONES; i++) {
             st->tenergy[0][i] += COS(st->ph[i]) * s_in;
             st->tenergy[0][i + STQC_NUM_TONES] += SIN(st->ph[i]) * s_in;

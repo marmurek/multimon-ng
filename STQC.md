@@ -116,23 +116,27 @@ Tone detection follows `selcall.c` (10 ms blocks, 40 ms correlation window).
 The parameters cover radio audio with noise, loudspeaker audio recorded in
 reverberant rooms and overdriven audio.
 
-- A tone must dominate the other tones by 7 dB and carry 30 % of the block
-  energy. The previous tone is excluded from the dominance check because its
-  echo decays slowly.
+- A tone must dominate the other tones by 7 dB and carry 15 % of the block
+  energy below 2500 Hz (4th-order Butterworth low-pass). The previous tone is
+  excluded from the dominance check because its echo decays slowly. Energy
+  above the tones is excluded because harmonics of a distorted tone would
+  otherwise count against it: in one recording the third harmonic of tone 1
+  carried 90 % of the energy.
 - A tone must persist for 30 ms before it is accepted.
-- A tone more than 12 dB below the strongest recent tone is ignored. This
-  removes echo tails that would otherwise bridge the address/command pause or
-  start the next sequence with a spurious tone.
+- A tone more than 10 dB below the strongest recent occurrence of the same
+  tone is ignored. This removes echo tails that would otherwise bridge the
+  address/command pause or start the next sequence with a spurious tone. The
+  reference is kept per tone because receiver de-emphasis and audio filters
+  attenuate the tones unequally: differences of up to 18 dB between the
+  tones of one call were seen, and a single reference would reject the weak
+  tones.
 - 80 ms without a valid tone, or a tone longer than 160 ms, ends a sequence.
   The pause between address and command was measured between 110 and 540 ms
   in recordings.
-- A tone that ended a sequence by its length is ignored until it stops.
-  If an echo tail stays within 12 dB for the whole pause and the address
-  ends with the same tone as the command begins (tone 4), the first command
-  tone merges with the tail and is lost; the value is unchanged because the
-  lost tone is a leading zero. This affects acoustic captures (a loudspeaker
-  recorded in a room); audio taken directly from a receiver output carries no
-  such echo.
+- A tone that ended a sequence by its length is ignored until it stops or
+  rises by 6 dB above its lowest level. The rise marks the first command tone
+  when the address ends with the same tone (tone 4) and its tail stays strong
+  through the pause in overdriven audio.
 
 ## Verification
 
@@ -161,14 +165,19 @@ Sequences decoded from recordings of DSP-50 calls:
 | system test series, radio | 34 | 34 | 4-tone controller replies, one 10-tone sequence, 3-tone fragments |
 | test calls, radio | 11 | 12 | first address cut by the start of the recording |
 | alarm call between music and siren | 1 | 1 | none |
+| alarm call, tone 1 at −18 dB and shorter than 100 ms | 1 | 1 | none |
+| alarm call, tone 1 distorted (third harmonic at 90 % of the energy) | 1 | 1 | none |
+| address followed by a second, overlapping signal | 1 | 0 | fragments of the overlapping signal |
 
 Resynthesizing the decoded sequences with `gen-ng` and decoding them again
 gives identical results. Tone frequencies in the recordings deviate by at most
-6 Hz from nominal.
+6 Hz from nominal, except for the recording with the weak tone 1, where they
+deviate by up to 14 Hz.
 
 The results are unchanged with added in-band noise and with −20 dB or +20 dB
-gain, except for the reverberant recording clipped by +20 dB (16 of 20
-sequences).
+gain, except for the reverberant recording clipped by +20 dB (18 of 20
+sequences) and the recording with the distorted tone clipped by +20 dB
+(fragments only).
 
 ### Test suite
 
@@ -184,4 +193,5 @@ sequences).
   white noise, 300-3000 Hz sweep;
 - recording excerpts in `test/samples/STQC_dsp50_*.flac`: radio test call,
   radio test call with controller reply, alarm call between music and siren,
-  test call recorded from a loudspeaker in a reverberant room.
+  test call recorded from a loudspeaker in a reverberant room, alarm call
+  with a weak tone, alarm call with a distorted tone.
